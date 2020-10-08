@@ -17,7 +17,8 @@ fi
 # Generate secret
 SECRET_FILE=/data/secret
 
-function random_secret { dd if=/dev/urandom bs=16 count=1 2>&1 | od -tx1  | head -n1 | tail -c +9 | tr -d ' '; }
+SECRET_LEN=${SECRET_LEN:-"16"}
+function random_secret { dd if=/dev/urandom bs=${SECRET_LEN} count=1 2>&1 | od -tx1  | head -n1 | tail -c +9 | tr -d ' '; }
 
 if [ ! -z "$SECRET" ]; then
   echo "[+] Using the explicitly passed secret: '$SECRET'."
@@ -26,8 +27,8 @@ elif [ -f $SECRET_FILE ]; then
   echo "[+] Using the secret in $SECRET_FILE: '$SECRET'."
 else
   if [[ ! -z "$SECRET_COUNT" ]]; then
-    if [[ ! ( "$SECRET_COUNT" -ge 1 &&  "$SECRET_COUNT" -le 16 ) ]]; then
-      echo "[F] Can generate between 1 and 16 secrets."
+    if [[ ! ( "$SECRET_COUNT" -ge 1 &&  "$SECRET_COUNT" -le 256 ) ]]; then
+      echo "[F] Can generate between 1 and 256 secrets."
       exit 5
     fi
   else
@@ -41,12 +42,12 @@ else
 fi
 
 SECRET_CMD=""
-if echo "$SECRET" | grep -qE '^[0-9a-fA-F]{32}(,[0-9a-fA-F]{32}){,15}$'; then
+if echo "$SECRET" | grep -qE '^[0-9a-fA-F]{32,256}(,[0-9a-fA-F]{32,256}){0,255}$'; then
   SECRET="$(echo "$SECRET" | tr '[:upper:]' '[:lower:]')"
   SECRET_CMD="-S $(echo "$SECRET" | sed 's/,/ -S /g')"
   echo "$SECRET" > $SECRET_FILE
 else
-  echo '[F] Bad secret format: should be 32 hex chars (for 16 bytes) for every secret; secrets should be comma-separated.'
+  echo '[F] Bad secret format: should be 32-256 hex chars (for 16-128 bytes) for every secret; secrets should be comma-separated.'
   exit 1
 fi
 
@@ -55,11 +56,11 @@ TAG_CMD=""
 
 if [ ! -z "$TAG" ]; then
   echo "[+] Using the explicitly passed tag: '$TAG'."
-  if echo "$TAG" | grep -qE '^[0-9a-fA-F]{32}$'; then
+  if echo "$TAG" | grep -qE '^[0-9a-fA-F]{32,256}$'; then
     TAG="$(echo "$TAG" | tr '[:upper:]' '[:lower:]')"
     TAG_CMD="-P $TAG"
   else
-    echo '[!] Bad tag format: should be 32 hex chars (for 16 bytes).'
+    echo '[!] Bad tag format: should be 32-256 hex chars (for 16-128 bytes).'
     echo '[!] Continuing.'
   fi
 fi
